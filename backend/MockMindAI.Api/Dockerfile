@@ -1,11 +1,11 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-COPY backend/MockMindAI.Api/MockMindAI.Api.csproj backend/MockMindAI.Api/
-RUN dotnet restore backend/MockMindAI.Api/MockMindAI.Api.csproj
+COPY MockMindAI.Api.csproj .
+RUN dotnet restore MockMindAI.Api.csproj
 
-COPY backend/MockMindAI.Api/ backend/MockMindAI.Api/
-RUN dotnet publish backend/MockMindAI.Api/MockMindAI.Api.csproj -c Release -o /app/publish --no-restore
+COPY . .
+RUN dotnet publish MockMindAI.Api.csproj -c Release -o /app/publish --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app

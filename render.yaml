@@ -7,7 +7,7 @@ services:
     repo: https://github.com/SriVarshini15/MockMindAI.git
     branch: main
     dockerfilePath: ./backend/MockMindAI.Api/Dockerfile
-    dockerContext: .
+    dockerContext: ./backend/MockMindAI.Api
     healthCheckPath: /health
     autoDeployTrigger: commit
     envVars:
