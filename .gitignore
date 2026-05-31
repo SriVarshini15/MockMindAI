@@ -1,0 +1,31 @@
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+TestResults/
+
+# Local backend secrets
+backend/MockMindAI.Api/appsettings.Development.json
+backend/MockMindAI.Api/appsettings.Local.json
+backend/MockMindAI.Api/secrets.json
+
+# Frontend dependencies/build output
+frontend/node_modules/
+frontend/dist/
+
+# Frontend env files
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

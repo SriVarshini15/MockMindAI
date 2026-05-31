@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/backend/">
+    <Project Path="backend/MockMindAI.Api/MockMindAI.Api.csproj" />
+  </Folder>
+</Solution>
