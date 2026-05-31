@@ -4,6 +4,7 @@ services:
     runtime: docker
     plan: free
     region: singapore
+    repo: https://github.com/SriVarshini15/MockMindAI.git
     branch: main
     dockerfilePath: ./backend/MockMindAI.Api/Dockerfile
     dockerContext: .
