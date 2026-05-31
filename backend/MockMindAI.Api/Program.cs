@@ -1,10 +1,13 @@
+using System.Net;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MockMindAI.Api.Data;
 using MockMindAI.Api.Options;
 using MockMindAI.Api.Services;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,8 +22,15 @@ if (string.IsNullOrWhiteSpace(connectionString))
         "ConnectionStrings:DefaultConnection is missing. Set it with user-secrets, appsettings.Development.json, or a deployment environment variable.");
 }
 
+connectionString = NormalizePostgresConnectionString(connectionString);
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseNpgsql(connectionString));
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemini"));
@@ -81,12 +91,13 @@ if (app.Environment.IsDevelopment())
     {
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await dbContext.Database.MigrateAsync();
-        await EnsureDevelopmentSchemaAsync(dbContext);
     }
 
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseForwardedHeaders();
 
 if (!app.Environment.IsDevelopment())
 {
@@ -103,77 +114,44 @@ app.MapControllers();
 
 app.Run();
 
-static async Task EnsureDevelopmentSchemaAsync(AppDbContext dbContext)
+static string NormalizePostgresConnectionString(string connectionString)
 {
-    await dbContext.Database.ExecuteSqlRawAsync("""
-        IF COL_LENGTH('Students', 'AvatarKey') IS NULL
-        BEGIN
-            ALTER TABLE Students
-            ADD AvatarKey nvarchar(max) NOT NULL
-                CONSTRAINT DF_Students_AvatarKey DEFAULT 'mentor';
-        END;
-        """);
+    if (!Uri.TryCreate(connectionString, UriKind.Absolute, out var uri) ||
+        (uri.Scheme != "postgres" && uri.Scheme != "postgresql"))
+    {
+        return connectionString;
+    }
 
-    await dbContext.Database.ExecuteSqlRawAsync("""
-        IF COL_LENGTH('Students', 'IsAdmin') IS NULL
-        BEGIN
-            ALTER TABLE Students
-            ADD IsAdmin bit NOT NULL
-                CONSTRAINT DF_Students_IsAdmin DEFAULT 0;
-        END;
-        """);
+    var userInfo = uri.UserInfo.Split(':', 2);
+    var builder = new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.Port > 0 ? uri.Port : 5432,
+        Username = WebUtility.UrlDecode(userInfo.ElementAtOrDefault(0) ?? string.Empty),
+        Password = WebUtility.UrlDecode(userInfo.ElementAtOrDefault(1) ?? string.Empty),
+        Database = WebUtility.UrlDecode(uri.AbsolutePath.TrimStart('/')),
+        Pooling = true
+    };
 
-    await dbContext.Database.ExecuteSqlRawAsync("""
-        IF COL_LENGTH('Students', 'IsDisabled') IS NULL
-        BEGIN
-            ALTER TABLE Students
-            ADD IsDisabled bit NOT NULL
-                CONSTRAINT DF_Students_IsDisabled DEFAULT 0;
-        END;
-        """);
+    var query = ParseQuery(uri.Query);
+    var sslMode = query.GetValueOrDefault("sslmode") ?? query.GetValueOrDefault("ssl");
+    if (string.Equals(sslMode, "require", StringComparison.OrdinalIgnoreCase))
+    {
+        builder.SslMode = SslMode.Require;
+        builder.TrustServerCertificate = true;
+    }
 
-    await dbContext.Database.ExecuteSqlRawAsync("""
-        IF COL_LENGTH('InterviewAttempts', 'DurationMinutes') IS NULL
-        BEGIN
-            ALTER TABLE InterviewAttempts
-            ADD DurationMinutes int NOT NULL
-                CONSTRAINT DF_InterviewAttempts_DurationMinutes DEFAULT 0;
-        END;
-        """);
+    return builder.ConnectionString;
+}
 
-    await dbContext.Database.ExecuteSqlRawAsync("""
-        IF COL_LENGTH('InterviewAttempts', 'IsTimedMode') IS NULL
-        BEGIN
-            ALTER TABLE InterviewAttempts
-            ADD IsTimedMode bit NOT NULL
-                CONSTRAINT DF_InterviewAttempts_IsTimedMode DEFAULT 0;
-        END;
-        """);
-
-    await dbContext.Database.ExecuteSqlRawAsync("""
-        IF COL_LENGTH('InterviewAttempts', 'SkillScoresJson') IS NULL
-        BEGIN
-            ALTER TABLE InterviewAttempts
-            ADD SkillScoresJson nvarchar(max) NOT NULL
-                CONSTRAINT DF_InterviewAttempts_SkillScoresJson DEFAULT '{{}}';
-        END;
-        """);
-
-    await dbContext.Database.ExecuteSqlRawAsync("""
-        IF COL_LENGTH('InterviewAttempts', 'WasAutoSubmitted') IS NULL
-        BEGIN
-            ALTER TABLE InterviewAttempts
-            ADD WasAutoSubmitted bit NOT NULL
-                CONSTRAINT DF_InterviewAttempts_WasAutoSubmitted DEFAULT 0;
-        END;
-        """);
-
-    await dbContext.Database.ExecuteSqlRawAsync("""
-        IF EXISTS (SELECT 1 FROM Students)
-        BEGIN
-            UPDATE Students
-            SET IsAdmin = 1
-            WHERE Id = (SELECT MIN(Id) FROM Students);
-        END;
-        """);
+static Dictionary<string, string> ParseQuery(string query)
+{
+    return query.TrimStart('?')
+        .Split('&', StringSplitOptions.RemoveEmptyEntries)
+        .Select(part => part.Split('=', 2))
+        .Where(parts => parts.Length == 2)
+        .ToDictionary(
+            parts => WebUtility.UrlDecode(parts[0]) ?? string.Empty,
+            parts => WebUtility.UrlDecode(parts[1]) ?? string.Empty,
+            StringComparer.OrdinalIgnoreCase);
 }

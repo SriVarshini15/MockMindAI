@@ -1,3 +1,10 @@
+databases:
+  - name: mockmindai-db
+    databaseName: mockmindai
+    user: mockmindai
+    plan: free
+    region: singapore
+
 services:
   - type: web
     name: mockmindai-api
@@ -13,10 +20,14 @@ services:
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
+      - key: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+        value: "true"
       - key: Database__AutoMigrate
         value: "true"
       - key: ConnectionStrings__DefaultConnection
-        sync: false
+        fromDatabase:
+          name: mockmindai-db
+          property: connectionString
       - key: Jwt__Key
         generateValue: true
       - key: Jwt__Issuer

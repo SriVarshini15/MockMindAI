@@ -9,9 +9,9 @@ Prerequisites:
 - Visual Studio 2022 or Visual Studio Code.
 - .NET 8 SDK/runtime.
 - Node.js 20 or newer.
-- SQL Server or SQL Server Express.
+- PostgreSQL 16 or newer.
 - Gemini API key.
-- For Docker SQL Server, expose port `1433` and keep your `SA` password ready.
+- For Docker PostgreSQL, expose port `5432` and keep your database password ready.
 
 1. Open Visual Studio.
 2. Select **Create a new project**.
@@ -48,7 +48,7 @@ MockMindAI/
 Install these packages in `backend/MockMindAI.Api`:
 
 ```bash
-dotnet add package Microsoft.EntityFrameworkCore.SqlServer --version 8.0.6
+dotnet add package Npgsql.EntityFrameworkCore.PostgreSQL --version 8.0.4
 dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer --version 8.0.6
 dotnet add package BCrypt.Net-Next --version 4.0.3
 ```
@@ -70,7 +70,7 @@ Alternatively, use .NET user secrets:
 ```bash
 cd backend/MockMindAI.Api
 dotnet user-secrets init
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost,1433;Database=MockMindAI;User Id=SA;Password=YOUR_SA_PASSWORD;Encrypt=True;TrustServerCertificate=True;MultipleActiveResultSets=True"
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=mockmindai;Username=postgres;Password=YOUR_POSTGRES_PASSWORD"
 dotnet user-secrets set "Jwt:Key" "YOUR_32_PLUS_CHARACTER_JWT_SECRET"
 dotnet user-secrets set "Gemini:ApiKey" "YOUR_GEMINI_API_KEY"
 ```
@@ -118,7 +118,7 @@ VITE_API_URL=https://your-backend-domain.com/api
 
 ## 4. Database
 
-Create the SQL Server database with EF migrations:
+Create the PostgreSQL database with EF migrations:
 
 ```bash
 cd backend/MockMindAI.Api
@@ -126,10 +126,8 @@ dotnet tool install --global dotnet-ef
 dotnet ef database update
 ```
 
-The backend also applies pending migrations automatically in Development when it starts.
-
-If your existing local database is missing the newer dashboard/auth columns, you can also run
-`backend/MockMindAI.Api/Scripts/repair-feature-expansion.sql` in Azure Data Studio.
+The backend also applies pending migrations automatically in Development when it starts. In deployment, set
+`Database__AutoMigrate=true` to apply migrations on startup.
 
 ## 5. Frontend Setup
 
