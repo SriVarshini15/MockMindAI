@@ -1,4 +1,4 @@
-# MockMind AI
+# MockMindAI
 
 Full stack AI-powered interview preparation platform.
 
