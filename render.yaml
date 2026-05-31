@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: mockmindai-api
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: main
+    dockerfilePath: ./backend/MockMindAI.Api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Database__AutoMigrate
+        value: "true"
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: Jwt__Key
+        generateValue: true
+      - key: Jwt__Issuer
+        value: MockMindAI
+      - key: Jwt__Audience
+        value: MockMindAIUsers
+      - key: Gemini__ApiKey
+        sync: false
+      - key: Gemini__Model
+        value: gemini-2.5-flash
+      - key: Frontend__AllowedOrigins__0
+        sync: false
